@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isAdmin() {
+      return request.auth != null && 
+             request.auth.token.email == "savageelijah994@gmail.com" && 
+             request.auth.token.email_verified == true;
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['title', 'visibility', 'createdAt']) &&
+             data.size() == 3 + ('link' in data ? 1 : 0) + ('imageUrl' in data ? 1 : 0) + ('imageUrls' in data ? 1 : 0) + ('tags' in data ? 1 : 0) &&
+             data.title is string && data.title.size() <= 100 &&
+             (!('link' in data) || (data.link is string && data.link.size() <= 500)) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 1048576)) &&
+             (!('imageUrls' in data) || (data.imageUrls is list && data.imageUrls.size() <= 10 && (data.imageUrls.size() == 0 || data.imageUrls[0] is string))) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 10 && (data.tags.size() == 0 || data.tags[0] is string))) &&
+             data.visibility is string && data.visibility == 'public' &&
+             data.createdAt == request.time;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['name', 'email', 'message', 'createdAt']) &&
+             data.size() == 4 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
+             data.message is string && data.message.size() > 0 && data.message.size() <= 5000 &&
+             data.createdAt == request.time;
+    }
+
+    function isValidBlog(data) {
+      return data.keys().hasAll(['title', 'content', 'visibility', 'createdAt']) &&
+             data.size() == 4 + ('link' in data ? 1 : 0) + ('imageUrl' in data ? 1 : 0) + ('imageUrls' in data ? 1 : 0) + ('tags' in data ? 1 : 0) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 1048000 &&
+             (!('link' in data) || (data.link is string && data.link.size() <= 500)) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 1048576)) &&
+             (!('imageUrls' in data) || (data.imageUrls is list && data.imageUrls.size() <= 10 && (data.imageUrls.size() == 0 || data.imageUrls[0] is string))) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 10 && (data.tags.size() == 0 || data.tags[0] is string))) &&
+             data.visibility is string && data.visibility == 'public' &&
+             data.createdAt == request.time;
+    }
+
+    match /blogs/{blogId} {
+      allow get: if existing().visibility == 'public' || isAdmin();
+      allow list: if existing().visibility == 'public' || isAdmin();
+      
+      allow create: if isAdmin() && isValidBlog(incoming());
+      
+      allow update: if isAdmin() && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'link', 'imageUrl', 'imageUrls', 'tags', 'visibility']) &&
+                    incoming().title is string && incoming().title.size() <= 200 &&
+                    incoming().content is string && incoming().content.size() <= 1048000 &&
+                    (!('link' in incoming()) || (incoming().link is string && incoming().link.size() <= 500)) &&
+                    (!('imageUrl' in incoming()) || (incoming().imageUrl is string && incoming().imageUrl.size() <= 1048576)) &&
+                    (!('imageUrls' in incoming()) || (incoming().imageUrls is list && incoming().imageUrls.size() <= 10 && (incoming().imageUrls.size() == 0 || incoming().imageUrls[0] is string))) &&
+                    (!('tags' in incoming()) || (incoming().tags is list && incoming().tags.size() <= 10 && (incoming().tags.size() == 0 || incoming().tags[0] is string))) &&
+                    incoming().visibility is string && incoming().visibility == 'public' &&
+                    incoming().createdAt == existing().createdAt;
+
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow create: if isValidMessage(incoming());
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /projects/{projectId} {
+      allow get: if existing().visibility == 'public' || isAdmin();
+      allow list: if existing().visibility == 'public' || isAdmin();
+      
+      allow create: if isAdmin() && isValidProject(incoming());
+      
+      allow update: if isAdmin() && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'link', 'imageUrl', 'imageUrls', 'tags', 'visibility']) &&
+                    incoming().title is string && incoming().title.size() <= 100 &&
+                    (!('link' in incoming()) || (incoming().link is string && incoming().link.size() <= 500)) &&
+                    (!('imageUrl' in incoming()) || (incoming().imageUrl is string && incoming().imageUrl.size() <= 1048576)) &&
+                    (!('imageUrls' in incoming()) || (incoming().imageUrls is list && incoming().imageUrls.size() <= 10 && (incoming().imageUrls.size() == 0 || incoming().imageUrls[0] is string))) &&
+                    (!('tags' in incoming()) || (incoming().tags is list && incoming().tags.size() <= 10 && (incoming().tags.size() == 0 || incoming().tags[0] is string))) &&
+                    incoming().visibility is string && incoming().visibility == 'public' &&
+                    incoming().createdAt == existing().createdAt;
+
+      allow delete: if isAdmin();
+    }
+  }
+}
